@@ -5,7 +5,7 @@
 	<artifactId>jcifs-ng</artifactId>
 	<groupId>eu.agno3.jcifs</groupId>
 	<packaging>bundle</packaging>
-	<version>2.1.6-SNAPSHOT</version>
+	<version>2.1.6-MSRPC_PATCH-SNAPSHOT</version>
 	<description>A pure-java CIFS/SMB client library</description>
 	<url>https://github.com/AgNO3/jcifs-ng/</url>
 
@@ -58,20 +58,20 @@
 			<version>3.1.0</version>
 			<scope>provided</scope>
 		</dependency>
-		 
+
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.24</version>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>1.7.24</version>
 			<scope>test</scope>
 		</dependency>
-		 
+
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcprov-jdk15on</artifactId>
@@ -171,7 +171,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>clirr-maven-plugin</artifactId>
-				<executions> 
+				<executions>
 					<execution>
 						<id>check-compatibility</id>
 						<goals>
@@ -182,7 +182,7 @@
 				<configuration>
 					<ignored>
 						<difference>
-							<!-- seems to be a clirr bug that it cannot handle the different inherited 
+							<!-- seems to be a clirr bug that it cannot handle the different inherited
 								return types -->
 							<className>**</className>
 							<differenceType>7006</differenceType>
@@ -352,7 +352,7 @@
 						<groupId>org.codehaus.mojo.signature</groupId>
 						<artifactId>java17</artifactId>
 						<version>1.0</version>
-					</signature>	
+					</signature>
 				</configuration>
 			</plugin>
 		</plugins>

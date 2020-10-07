@@ -1,17 +1,17 @@
 /* jcifs msrpc client library in Java
  * Copyright (C) 2006  "Michael B. Allen" <jcifs at samba dot org>
  *                   "Eric Glass" <jcifs at samba dot org>
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -31,8 +31,8 @@ import jcifs.dcerpc.ndr.NdrException;
 
 
 /**
- * 
- * 
+ *
+ *
  */
 public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
@@ -137,7 +137,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
     /**
      * @param tc
-     * 
+     *
      */
     public DcerpcHandle ( CIFSContext tc ) {
         this.transportContext = tc;
@@ -181,7 +181,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
     /**
      * Get a handle to a service
-     * 
+     *
      * @param url
      * @param tc
      *            context to use
@@ -196,7 +196,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
     /**
      * Get a handle to a service
-     * 
+     *
      * @param url
      * @param tc
      * @param unshared
@@ -215,7 +215,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
     /**
      * Bind the handle
-     * 
+     *
      * @throws DcerpcException
      * @throws IOException
      */
@@ -235,7 +235,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
 
     /**
-     * 
+     *
      * @param msg
      * @throws DcerpcException
      * @throws IOException
@@ -292,40 +292,104 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
      */
     private int sendFragments ( DcerpcMessage msg, byte[] out, NdrBuffer buf ) throws IOException {
         int off = 0;
-        int tot = buf.getLength() - 24;
+        int headerLength = 24;
+        int trailerLength = 0;
+        int sec_trailer_len = 0;
+        int max_auth_pad_len = 0;
+        if (msg.auth_len > 0) {
+            /*
+                The sec_trailer structure MUST be 4-byte aligned with respect to the beginning of the PDU.
+                Padding octets MUST be used to align the sec_trailer structure if its natural beginning
+                is not already 4-byte aligned.
+             */
+            // See https://github.com/SecureAuthCorp/impacket/blob/master/impacket/dcerpc/v5/rpcrt.py
+            /*
+                pad = (4 - (len(rpc_packet.get_packet()) % 4)) % 4
+                if pad != 0:
+                    rpc_packet['pduData'] += b'\xBB'*pad
+                    sec_trailer['auth_pad_len']=pad
+             */
+            sec_trailer_len = 8;
+            max_auth_pad_len = 4;
+            int body_len = buf.getLength() - headerLength - sec_trailer_len - msg.auth_len;
+            // int auth_pad_len = ? max 4;
+            trailerLength = sec_trailer_len + msg.auth_len;
+        }
+        int headerAndTrailerLength = headerLength + trailerLength;
+        int tot = buf.getLength() - headerAndTrailerLength;
+        int headerAndMaxTrailerLength = headerAndTrailerLength + max_auth_pad_len;
         while ( off < tot ) {
             int fragSize = tot - off;
-            if ( ( 24 + fragSize ) > this.max_xmit ) {
-                // need fragementation
+            if ( ( headerAndMaxTrailerLength + fragSize ) > this.max_xmit ) {
+                // need fragmentation
                 msg.flags &= ~DCERPC_LAST_FRAG;
-                fragSize = this.max_xmit - 24;
+                fragSize = this.max_xmit - headerAndMaxTrailerLength;
             }
             else {
                 msg.flags |= DCERPC_LAST_FRAG;
                 msg.alloc_hint = fragSize;
             }
 
-            msg.length = 24 + fragSize;
+            int headerAndMessageLength = headerLength + fragSize;
+            int auth_pad_len = 0;
+            if (msg.auth_len > 0) {
+                auth_pad_len = (4 - (headerAndMessageLength % 4)) % 4;
+            }
+            trailerLength = auth_pad_len + sec_trailer_len + msg.auth_len;
+
+            msg.length = headerLength + fragSize + trailerLength;
 
             if ( off > 0 ) {
                 msg.flags &= ~DCERPC_FIRST_FRAG;
             }
 
+            NdrBuffer fragBuf = buf;
             if ( ( msg.flags & ( DCERPC_FIRST_FRAG | DCERPC_LAST_FRAG ) ) != ( DCERPC_FIRST_FRAG | DCERPC_LAST_FRAG ) ) {
+                fragBuf = new NdrBuffer(new byte[msg.length], 0);
+                msg.encode_header(fragBuf);
+                fragBuf.enc_ndr_long(msg.alloc_hint);
+                fragBuf.enc_ndr_short(0); /* context id */
+                fragBuf.enc_ndr_short(msg.getOpnum());
+
+                System.arraycopy(buf.getBuffer(), headerLength + off, fragBuf.getBuffer(), fragBuf.getIndex(), fragSize);
+                fragBuf.advance(fragSize);
+
+                /*
+                    For request and response PDUs, where the request and response PDUs are part of a fragmented request
+                    or response and authentication is requested (nonzero auth_length),
+                    the sec_trailer structure MUST be present in every fragment of the request or response.
+                 */
+                /*
+                    The sec_trailer structure MUST be 4-byte aligned with respect to the beginning of the PDU.
+                    Padding octets MUST be used to align the sec_trailer structure if its natural beginning
+                    is not already 4-byte aligned.
+                 */
+                fragBuf.align(4);
+                msg.encode_sec_trailer(fragBuf);
+                msg.encode_auth(fragBuf);
+            }
+
+            if ( ( msg.flags & DCERPC_LAST_FRAG ) != DCERPC_LAST_FRAG ) {
+                // all fragment but the last get written using read/write semantics
+                doSendFragment(fragBuf.getBuffer(), 0, msg.length);
+                off += fragSize;
+            } else if ( ( msg.flags & DCERPC_FIRST_FRAG ) != DCERPC_FIRST_FRAG ) {
                 buf.start = off;
                 buf.reset();
                 msg.encode_header(buf);
                 buf.enc_ndr_long(msg.alloc_hint);
                 buf.enc_ndr_short(0); /* context id */
                 buf.enc_ndr_short(msg.getOpnum());
-            }
 
-            if ( ( msg.flags & DCERPC_LAST_FRAG ) != DCERPC_LAST_FRAG ) {
-                // all fragment but the last get written using read/write semantics
-                doSendFragment(out, off, msg.length);
-                off += fragSize;
-            }
-            else {
+                System.arraycopy(fragBuf.getBuffer(), headerLength, buf.getBuffer(), buf.getIndex(), fragSize);
+                buf.advance(fragSize);
+
+                buf.align(4);
+                msg.encode_sec_trailer(buf);
+                msg.encode_auth(buf);
+
+                return off;
+            } else {
                 return off;
             }
         }
@@ -344,23 +408,66 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
      * @throws NdrException
      */
     private byte[] receiveMoreFragments ( DcerpcMessage msg, byte[] in ) throws IOException, DcerpcException, NdrException {
-        int off = msg.ptype == 2 ? msg.length : 24;
+        int headerLength = 24;
+        int sec_trailer_len = 0;
+        int auth_pad_len = 0;
+        int off = msg.ptype == 2 ? msg.length : headerLength;
         byte[] fragBytes = new byte[this.max_recv];
         NdrBuffer fragBuf = new NdrBuffer(fragBytes, 0);
         while ( !msg.isFlagSet(DCERPC_LAST_FRAG) ) {
-            doReceiveFragment(fragBytes);
+            int frag_len = doReceiveFragment(fragBytes);
             setupReceivedFragment(fragBuf);
             fragBuf.reset();
             msg.decode_header(fragBuf);
-            int stub_frag_len = msg.length - 24;
+            int bodyStart = fragBuf.getIndex();
+            if (msg.auth_len > 0) {
+                /*
+                    The sec_trailer structure MUST be 4-byte aligned with respect to the beginning of the PDU.
+                    Padding octets MUST be used to align the sec_trailer structure if its natural beginning
+                    is not already 4-byte aligned.
+                 */
+                // See https://github.com/SecureAuthCorp/impacket/blob/master/impacket/dcerpc/v5/rpcrt.py
+                /*
+                    pad = (4 - (len(rpc_packet.get_packet()) % 4)) % 4
+                    if pad != 0:
+                        rpc_packet['pduData'] += b'\xBB'*pad
+                        sec_trailer['auth_pad_len']=pad
+                 */
+                sec_trailer_len = 8;
+                // auth_pad_length (1 byte):
+                /*
+                    The beginning of the sec_trailer structure for each PDU MUST be calculated to start
+                    from offset (frag_length – auth_length – 8) from the beginning of the PDU.
+                 */
+                int auth_type_len = 1;
+                int auth_level_len = 1;
+                fragBuf.setIndex(msg.length - sec_trailer_len - msg.auth_len + auth_type_len + auth_level_len);
+                auth_pad_len = fragBuf.dec_ndr_small();
+                fragBuf.setIndex(bodyStart);
+            }
+
+            int stub_frag_len;
+            if (msg.isFlagSet(DCERPC_LAST_FRAG) ) {
+                stub_frag_len = msg.length - headerLength;
+            } else {
+                stub_frag_len = msg.length - headerLength - auth_pad_len - sec_trailer_len - msg.auth_len;
+            }
+
             if ( ( off + stub_frag_len ) > in.length ) {
                 // shouldn't happen if alloc_hint is correct or greater
                 byte[] tmp = new byte[off + stub_frag_len];
                 System.arraycopy(in, 0, tmp, 0, off);
                 in = tmp;
             }
-            System.arraycopy(fragBytes, 24, in, off, stub_frag_len);
+            System.arraycopy(fragBytes, headerLength, in, off, stub_frag_len);
             off += stub_frag_len;
+            if (msg.isFlagSet(DCERPC_LAST_FRAG) ) {
+                // fix the total length:
+                msg.length = off;
+                NdrBuffer ndrBuffer = new NdrBuffer(in, 0);
+                ndrBuffer.setIndex(8);
+                ndrBuffer.enc_ndr_short(off);
+            }
         }
         return in;
     }
@@ -405,7 +512,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
 
     /**
-     * 
+     *
      * @param securityProvider
      */
     public void setDcerpcSecurityProvider ( DcerpcSecurityProvider securityProvider ) {
@@ -414,7 +521,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
 
     /**
-     * 
+     *
      * @return the server connected to
      */
     public abstract String getServer ();
@@ -433,7 +540,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
 
 
     /**
-     * 
+     *
      * @return session key of the underlying smb session
      * @throws CIFSException
      */
