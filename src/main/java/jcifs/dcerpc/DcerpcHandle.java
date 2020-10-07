@@ -354,6 +354,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
                 System.arraycopy(buf.getBuffer(), headerLength + off, fragBuf.getBuffer(), fragBuf.getIndex(), fragSize);
                 fragBuf.advance(fragSize);
 
+                if (msg.auth_len > 0) {
                 /*
                     For request and response PDUs, where the request and response PDUs are part of a fragmented request
                     or response and authentication is requested (nonzero auth_length),
@@ -364,9 +365,11 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
                     Padding octets MUST be used to align the sec_trailer structure if its natural beginning
                     is not already 4-byte aligned.
                  */
-                fragBuf.align(4);
-                msg.encode_sec_trailer(fragBuf);
-                msg.encode_auth(fragBuf);
+                    fragBuf.advance(auth_pad_len);
+                    msg.set_auth_pad_len(auth_pad_len);
+                    msg.encode_sec_trailer(fragBuf);
+                    msg.encode_auth(fragBuf);
+                }
             }
 
             if ( ( msg.flags & DCERPC_LAST_FRAG ) != DCERPC_LAST_FRAG ) {
@@ -384,9 +387,12 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
                 System.arraycopy(fragBuf.getBuffer(), headerLength, buf.getBuffer(), buf.getIndex(), fragSize);
                 buf.advance(fragSize);
 
-                buf.align(4);
-                msg.encode_sec_trailer(buf);
-                msg.encode_auth(buf);
+                if (msg.auth_len > 0) {
+                    buf.advance(auth_pad_len);
+                    msg.set_auth_pad_len(auth_pad_len);
+                    msg.encode_sec_trailer(buf);
+                    msg.encode_auth(buf);
+                }
 
                 return off;
             } else {

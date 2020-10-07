@@ -38,6 +38,8 @@ public abstract class DcerpcMessage extends NdrObject implements DcerpcConstants
     protected int alloc_hint = 0;
     protected int result = 0;
 
+    protected int auth_pad_len = 0;
+
     /**
      *
      * @param flag
@@ -146,7 +148,8 @@ public abstract class DcerpcMessage extends NdrObject implements DcerpcConstants
                 Padding octets MUST be used to align the sec_trailer structure if its natural beginning
                 is not already 4-byte aligned.
              */
-            buf.align(4);
+            auth_pad_len = (4 - (buf.getLength() % 4)) % 4;
+            buf.advance(auth_pad_len);
             encode_sec_trailer(buf);
             encode_auth(buf);
         }
@@ -229,6 +232,14 @@ public abstract class DcerpcMessage extends NdrObject implements DcerpcConstants
 
     public void set_auth_len(int auth_len) {
         this.auth_len = auth_len;
+    }
+
+    public int get_auth_pad_len() {
+        return auth_pad_len;
+    }
+
+    public void set_auth_pad_len(int auth_pad_len) {
+        this.auth_pad_len = auth_pad_len;
     }
 
     public int getLength() {
