@@ -80,7 +80,7 @@ public class DcerpcAlterContext extends DcerpcMessage {
     public DcerpcAlterContext() {}
 
 
-    DcerpcAlterContext(DcerpcBinding binding, DcerpcHandle handle ) {
+    public DcerpcAlterContext(DcerpcBinding binding, DcerpcHandle handle ) {
         this.binding = binding;
         this.max_xmit = handle.getMaxXmit();
         this.max_recv = handle.getMaxRecv();
