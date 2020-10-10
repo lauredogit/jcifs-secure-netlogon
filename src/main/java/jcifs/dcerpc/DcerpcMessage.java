@@ -171,7 +171,7 @@ public abstract class DcerpcMessage extends NdrObject implements DcerpcConstants
     public void decode ( NdrBuffer buf ) throws NdrException {
         decode_header(buf);
 
-        if ( this.ptype != 12 && this.ptype != 2 && this.ptype != 3 && this.ptype != 13 )
+        if ( this.ptype != 12 && this.ptype != 2 && this.ptype != 3 && this.ptype != 13 && this.ptype != 15 )
             throw new NdrException("Unexpected ptype: " + this.ptype);
 
         if ( this.ptype == 2 || this.ptype == 3 ) { /* Response or Fault */
