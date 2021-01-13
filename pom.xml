@@ -74,8 +74,8 @@
 
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
-			<artifactId>bcprov-jdk15on</artifactId>
-			<version>1.66</version>
+			<artifactId>bcprov-ext-debug-jdk15to18</artifactId>
+			<version>1.68</version>
 		</dependency>
 
 		<dependency>
@@ -150,23 +150,6 @@
 						</goals>
 					</execution>
 				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-javadoc-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>attach-javadocs</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<show>public</show>
-					<excludePackageNames>jcifs.dcerpc.*:</excludePackageNames>
-					<additionalparam>-Xdoclint:-missing</additionalparam>
-				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>

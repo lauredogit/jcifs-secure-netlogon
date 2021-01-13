@@ -1,15 +1,15 @@
 /*
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -21,8 +21,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.DEROutputStream;
+import org.bouncycastle.asn1.ASN1OutputStream;
 import org.bouncycastle.asn1.DERSequence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,7 @@ import jcifs.util.Hexdump;
 
 /**
  * This class used to wrap a {@link SSPContext} to provide SPNEGO feature.
- * 
+ *
  * @author Shun
  *
  */
@@ -73,7 +74,7 @@ class SpnegoContext implements SSPContext {
     /**
      * Instance a <code>SpnegoContext</code> object by wrapping a {@link SSPContext}
      * with the same mechanism this {@link SSPContext} used.
-     * 
+     *
      * @param source
      *            the {@link SSPContext} to be wrapped
      */
@@ -85,7 +86,7 @@ class SpnegoContext implements SSPContext {
     /**
      * Instance a <code>SpnegoContext</code> object by wrapping a {@link SSPContext}
      * with specified mechanism.
-     * 
+     *
      * @param source
      *            the {@link SSPContext} to be wrapped
      * @param mech
@@ -132,7 +133,7 @@ class SpnegoContext implements SSPContext {
 
     /**
      * Determines what mechanism is being used for this context.
-     * 
+     *
      * @return the Oid of the mechanism being used
      */
     ASN1ObjectIdentifier[] getMechs () {
@@ -150,7 +151,7 @@ class SpnegoContext implements SSPContext {
 
     /**
      * Set what mechanism is being used for this context.
-     * 
+     *
      * @param mechs
      */
     void setMechs ( ASN1ObjectIdentifier[] mechs ) {
@@ -182,7 +183,7 @@ class SpnegoContext implements SSPContext {
 
     /**
      * Initialize the GSSContext to provide SPNEGO feature.
-     * 
+     *
      * @param inputBuf
      * @param offset
      * @param len
@@ -366,7 +367,7 @@ class SpnegoContext implements SSPContext {
     private static byte[] encodeMechs ( ASN1ObjectIdentifier[] mechs ) throws CIFSException {
         try {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            DEROutputStream dos = new DEROutputStream(bos);
+            ASN1OutputStream dos = ASN1OutputStream.create(bos, ASN1Encoding.DER);
             dos.writeObject(new DERSequence(mechs));
             dos.close();
             return bos.toByteArray();
@@ -488,7 +489,7 @@ class SpnegoContext implements SSPContext {
 
 
     /**
-     * 
+     *
      */
     @Override
     public void dispose () throws CIFSException {
