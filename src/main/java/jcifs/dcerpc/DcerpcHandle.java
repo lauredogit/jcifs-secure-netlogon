@@ -483,7 +483,7 @@ public abstract class DcerpcHandle implements DcerpcConstants, AutoCloseable {
      * @param fbuf
      * @throws DcerpcException
      */
-    private void setupReceivedFragment ( NdrBuffer fbuf ) throws DcerpcException {
+    private void setupReceivedFragment ( NdrBuffer fbuf ) throws DcerpcException, NdrException {
         fbuf.reset();
         fbuf.setIndex(8);
         fbuf.setLength(fbuf.dec_ndr_short());
