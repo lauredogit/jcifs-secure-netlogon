@@ -1,16 +1,16 @@
 /*
  * © 2016 AgNO3 Gmbh & Co. KG
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -21,6 +21,7 @@ package jcifs.smb;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -82,19 +83,25 @@ public class SmbTransportPoolImpl implements SmbTransportPool {
         }
         synchronized ( this.connections ) {
             cleanup();
-            if ( log.isTraceEnabled() ) {
-                log.trace("Exclusive " + nonPooled + " enforced signing " + forceSigning);
+        }
+        if (log.isTraceEnabled()) {
+            log.trace("Exclusive " + nonPooled + " enforced signing " + forceSigning);
+        }
+        // open call in case of timeout in conn.getNegotiateResponse() which performs a connect()
+        if (!nonPooled && tc.getConfig().getSessionLimit() != 1) {
+            SmbTransportImpl existing = findConnection(tc, address, port, localAddr, localPort, hostName, forceSigning, false);
+            if (existing != null) {
+                return existing;
             }
-            if ( !nonPooled && tc.getConfig().getSessionLimit() != 1 ) {
-                SmbTransportImpl existing = findConnection(tc, address, port, localAddr, localPort, hostName, forceSigning, false);
-                if ( existing != null ) {
-                    return existing;
-                }
-            }
-            SmbTransportImpl conn = new SmbTransportImpl(tc, address, port, localAddr, localPort, forceSigning);
-            if ( log.isDebugEnabled() ) {
-                log.debug("New transport connection " + conn);
-            }
+        }
+
+        // we allow duplicates in the list, it's the least of 2 evils
+        SmbTransportImpl conn = new SmbTransportImpl(tc, address, port, localAddr, localPort, forceSigning);
+        if ( log.isDebugEnabled() ) {
+            log.debug("New transport connection " + conn);
+        }
+
+        synchronized ( this.connections ) {
             if ( nonPooled ) {
                 this.nonPooledConnections.add(conn);
             }
@@ -118,7 +125,16 @@ public class SmbTransportPoolImpl implements SmbTransportPool {
      */
     private SmbTransportImpl findConnection ( CIFSContext tc, Address address, int port, InetAddress localAddr, int localPort, String hostName,
             boolean forceSigning, boolean connectedOnly ) {
-        for ( SmbTransportImpl conn : this.connections ) {
+
+        List<SmbTransportImpl> localCopy = new ArrayList<>();
+        List<SmbTransportImpl> connectionList = this.connections;
+        synchronized (connectionList) {
+            localCopy.addAll(connectionList);
+        }
+
+        // open call via local copy
+
+        for ( SmbTransportImpl conn : localCopy) {
             if ( conn.matches(address, port, localAddr, localPort, hostName)
                     && ( tc.getConfig().getSessionLimit() == 0 || conn.getNumSessions() < tc.getConfig().getSessionLimit() ) ) {
                 try {
@@ -166,7 +182,6 @@ public class SmbTransportPoolImpl implements SmbTransportPool {
         return null;
     }
 
-
     @Override
     public SmbTransportImpl getSmbTransport ( CIFSContext tf, String name, int port, boolean exclusive, boolean forceSigning ) throws IOException {
 
@@ -193,20 +208,18 @@ public class SmbTransportPoolImpl implements SmbTransportPool {
 
         });
 
-        synchronized ( this.connections ) {
-            for ( Address addr : addrs ) {
-                SmbTransportImpl found = findConnection(
-                    tf,
-                    addr,
-                    port,
-                    tf.getConfig().getLocalAddr(),
-                    tf.getConfig().getLocalPort(),
-                    name,
-                    forceSigning,
-                    true);
-                if ( found != null ) {
-                    return found;
-                }
+        for ( Address addr : addrs ) {
+            SmbTransportImpl found = findConnection(
+                tf,
+                addr,
+                port,
+                tf.getConfig().getLocalAddr(),
+                tf.getConfig().getLocalPort(),
+                name,
+                forceSigning,
+                true);
+            if ( found != null ) {
+                return found;
             }
         }
 
@@ -246,7 +259,7 @@ public class SmbTransportPoolImpl implements SmbTransportPool {
 
 
     /**
-     * 
+     *
      * @param trans
      * @return whether (non-exclusive) connection is in the pool
      */
