@@ -1,21 +1,20 @@
 /*
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 package jcifs.pac.kerberos;
-
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -44,7 +43,6 @@ import javax.security.auth.kerberos.KerberosKey;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.DERApplicationSpecific;
 import org.bouncycastle.asn1.DERGeneralString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERTaggedObject;
@@ -65,19 +63,7 @@ public class KerberosEncData {
 
 
     public KerberosEncData ( byte[] token, Map<Integer, KerberosKey> keys ) throws PACDecodingException {
-        ASN1InputStream stream = new ASN1InputStream(new ByteArrayInputStream(token));
-        DERApplicationSpecific derToken;
-        try {
-            derToken = ASN1Util.as(DERApplicationSpecific.class, stream);
-            if ( !derToken.isConstructed() )
-                throw new PACDecodingException("Malformed kerberos ticket");
-            stream.close();
-        }
-        catch ( IOException e ) {
-            throw new PACDecodingException("Malformed kerberos ticket", e);
-        }
-
-        stream = new ASN1InputStream(new ByteArrayInputStream(derToken.getContents()));
+        ASN1InputStream stream = new ASN1InputStream(new ByteArrayInputStream(ASN1Util.getDERApplicationSpecificContents(token)));
         DLSequence sequence;
         try {
             sequence = ASN1Util.as(DLSequence.class, stream);

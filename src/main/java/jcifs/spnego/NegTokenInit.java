@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Enumeration;
 
-import org.bouncycastle.asn1.ASN1ApplicationSpecific;
 import org.bouncycastle.asn1.ASN1BitString;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
@@ -36,12 +35,13 @@ import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1OutputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.DERApplicationSpecific;
+import org.bouncycastle.asn1.BERTags;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERTaggedObject;
 
+import jcifs.pac.ASN1Util;
 import jcifs.util.Hexdump;
 
 
@@ -157,7 +157,7 @@ public class NegTokenInit extends SpnegoToken {
             ev.add(new DERTaggedObject(true, 0, new DERSequence(fields)));
             ByteArrayOutputStream collector = new ByteArrayOutputStream();
             ASN1OutputStream der = ASN1OutputStream.create(collector, ASN1Encoding.DER);
-            DERApplicationSpecific derApplicationSpecific = new DERApplicationSpecific(0, ev);
+            DERTaggedObject derApplicationSpecific = new DERTaggedObject(false, BERTags.APPLICATION, 0, new DERSequence(ev));
             der.writeObject(derApplicationSpecific);
             return collector.toByteArray();
         }
@@ -171,13 +171,15 @@ public class NegTokenInit extends SpnegoToken {
     protected void parse ( byte[] token ) throws IOException {
 
         try ( ASN1InputStream is = new ASN1InputStream(token) ) {
-            ASN1ApplicationSpecific constructed = (ASN1ApplicationSpecific) is.readObject();
-            if ( constructed == null || !constructed.isConstructed() )
+            ASN1TaggedObject constructed = (ASN1TaggedObject) is.readObject();
+            if ( constructed == null || constructed.getTagClass() != BERTags.APPLICATION )
                 throw new IOException(
                     "Malformed SPNEGO token " + constructed
-                            + ( constructed != null ? " " + constructed.isConstructed() + " " + constructed.getApplicationTag() : "" ));
+                            + ( constructed != null ? " " + constructed.getTagClass() : "" ));
 
-            try ( ASN1InputStream der = new ASN1InputStream(constructed.getContents()) ) {
+            byte[] contents = ASN1Util.getContents(constructed);
+
+            try ( ASN1InputStream der = new ASN1InputStream(contents) ) {
                 ASN1ObjectIdentifier spnego = (ASN1ObjectIdentifier) der.readObject();
                 if ( !SPNEGO_OID.equals(spnego) ) {
                     throw new IOException("Malformed SPNEGO token, OID " + spnego);
@@ -209,7 +211,7 @@ public class NegTokenInit extends SpnegoToken {
                         break;
 
                     case 3:
-                        if ( ! ( tagged.getObject() instanceof DEROctetString ) ) {
+                        if ( ! ( tagged.getBaseObject() instanceof DEROctetString ) ) {
                             break;
                         }
                     case 4:

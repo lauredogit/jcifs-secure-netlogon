@@ -1,15 +1,15 @@
 /*
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -27,7 +27,7 @@ import javax.security.auth.kerberos.KerberosKey;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.DERApplicationSpecific;
+import org.bouncycastle.asn1.BERTags;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DLSequence;
 
@@ -76,10 +76,10 @@ public class KerberosApRequest {
                 this.apOptions = bitString.getBytes()[ 0 ];
                 break;
             case 3:
-                DERApplicationSpecific derTicket = ASN1Util.as(DERApplicationSpecific.class, tagged);
-                if ( !derTicket.isConstructed() )
+                if (tagged.getTagClass() != BERTags.APPLICATION) {
                     throw new PACDecodingException("Malformed Kerberos Ticket");
-                this.ticket = new KerberosTicket(derTicket.getContents(), this.apOptions, keys);
+                }
+                this.ticket = new KerberosTicket(ASN1Util.getContents(tagged), this.apOptions, keys);
                 break;
             case 4:
                 // Let's ignore this for now

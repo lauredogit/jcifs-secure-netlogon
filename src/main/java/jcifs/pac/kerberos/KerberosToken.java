@@ -1,15 +1,15 @@
 /*
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -24,7 +24,6 @@ import javax.security.auth.kerberos.KerberosKey;
 
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.DERApplicationSpecific;
 
 import jcifs.pac.ASN1Util;
 import jcifs.pac.PACDecodingException;
@@ -47,13 +46,9 @@ public class KerberosToken {
             throw new PACDecodingException("Empty kerberos token");
 
         try {
-            ASN1InputStream stream = new ASN1InputStream(new ByteArrayInputStream(token));
-            DERApplicationSpecific derToken = ASN1Util.as(DERApplicationSpecific.class, stream);
-            if ( derToken == null || !derToken.isConstructed() )
-                throw new PACDecodingException("Malformed kerberos token");
-            stream.close();
 
-            stream = new ASN1InputStream(new ByteArrayInputStream(derToken.getContents()));
+            byte[] contents = ASN1Util.getDERApplicationSpecificContents(token);
+            ASN1InputStream stream = new ASN1InputStream(new ByteArrayInputStream(contents));
             ASN1ObjectIdentifier kerberosOid = ASN1Util.as(ASN1ObjectIdentifier.class, stream);
             if ( !kerberosOid.getId().equals(KerberosConstants.KERBEROS_OID) )
                 throw new PACDecodingException("Not a kerberos token");
@@ -65,13 +60,9 @@ public class KerberosToken {
             if ( read != 0x01 )
                 throw new PACDecodingException("Malformed kerberos token");
 
-            DERApplicationSpecific krbToken = ASN1Util.as(DERApplicationSpecific.class, stream);
-            if ( krbToken == null || !krbToken.isConstructed() )
-                throw new PACDecodingException("Malformed kerberos token");
+            byte[] krbTokenContents = ASN1Util.getDERApplicationSpecificContents(stream);
 
-            stream.close();
-
-            this.apRequest = new KerberosApRequest(krbToken.getContents(), keys);
+            this.apRequest = new KerberosApRequest(krbTokenContents, keys);
         }
         catch ( IOException e ) {
             throw new PACDecodingException("Malformed kerberos token", e);
