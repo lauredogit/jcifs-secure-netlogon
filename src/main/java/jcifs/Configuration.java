@@ -161,7 +161,7 @@ public interface Configuration {
 
     /**
      * 
-     * Property <tt>jcifs.smb.client.useBatching</tt> (boolean, default true)
+     * Property <tt>jcifs.smb.client.useBatching</tt> (boolean, default false)
      * 
      * @return whether to enable support for SMB1 AndX command batching
      */
@@ -643,9 +643,9 @@ public interface Configuration {
 
     /**
      * 
-     * Property <tt>jcifs.smb.client.listSize</tt> (int, default 65535)
+     * Property <tt>jcifs.smb.client.listSize</tt> (int, default 65435)
      * 
-     * @return maximum data size for list requests
+     * @return maximum data size for list/info requests (known overhead is subtracted)
      */
     int getListSize ();
 

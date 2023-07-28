@@ -60,7 +60,7 @@ public class BaseConfiguration implements Configuration {
     protected int localPid = -1;
     protected TimeZone localTimeZone;
     protected SecureRandom random;
-    protected boolean useBatching = true;
+    protected boolean useBatching = false;
     protected boolean useUnicode = true;
     protected boolean forceUnicode = false;
     protected boolean signingPreferred = false;
@@ -124,7 +124,7 @@ public class BaseConfiguration implements Configuration {
     protected int maximumBufferSize = 0x10000;
     protected int transactionBufferSize = 0xFFFF - 512;
     protected int bufferCacheSize = 16;
-    protected int smbListSize = 65535;
+    protected int smbListSize = 65435;
     protected int smbListCount = 200;
     protected long smbAttributeExpiration = 5000L;
     protected boolean ignoreCopyToException = false;

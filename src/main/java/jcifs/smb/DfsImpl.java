@@ -452,7 +452,7 @@ public class DfsImpl implements DfsResolver {
                         DfsReferralDataInternal r = start;
                         do {
                             log.trace("    " + entry3.getKey() + " => " + entry3.getValue());
-                            r = start.next();
+                            r = r.next();
                         }
                         while ( r != start );
                     }
@@ -676,6 +676,10 @@ public class DfsImpl implements DfsResolver {
         }
 
         if ( dr == null ) {
+            if ( tf.getConfig().isDfsConvertToFQDN()) {
+                rootDr.fixupDomain(domain);
+            }
+
             try ( SmbTransportInternal trans = getReferralTransport(tf, rootDr) ) {
                 if ( trans == null )
                     return null;
