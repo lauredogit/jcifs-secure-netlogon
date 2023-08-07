@@ -19,10 +19,12 @@ package jcifs.pac;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.util.Enumeration;
 
 import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1ParsingException;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1TaggedObject;
 import org.bouncycastle.asn1.BERTags;
@@ -145,15 +147,43 @@ public final class ASN1Util {
      * @since 2.11.0
      */
     public static byte[] getContents(ASN1TaggedObject asn1TaggedObject) {
-        byte[] contents;
         try {
-            // byte[] ASN1TaggedObject.getContents()
-            Method getContentsMethod = ASN1TaggedObject.class.getDeclaredMethod("getContents");
-            getContentsMethod.setAccessible(true);
-            contents = (byte[]) getContentsMethod.invoke(asn1TaggedObject);
+
+            Method getASN1EncodingMethod = ASN1TaggedObject.class.getDeclaredMethod("getASN1Encoding");
+            getASN1EncodingMethod.setAccessible(true);
+            String asn1Encoding = (String) getASN1EncodingMethod.invoke(asn1TaggedObject);
+
+            byte[] baseEncoding = asn1TaggedObject.getBaseObject().toASN1Primitive().getEncoded(asn1Encoding);
+            if (asn1TaggedObject.isExplicit()) {
+                return baseEncoding;
+            }
+
+            ByteArrayInputStream input = new ByteArrayInputStream(baseEncoding);
+            int tag = input.read();
+
+            // ASN1InputStream.readTagNumber(input, tag);
+            Method readTagNumberMethod = ASN1InputStream.class.getDeclaredMethod("readTagNumber", InputStream.class, int.class);
+            readTagNumberMethod.setAccessible(true);
+            readTagNumberMethod.invoke(ASN1InputStream.class, input, tag);
+
+            // int length = ASN1InputStream.readLength(input, input.available(), false);
+            Method readLengthMethod =
+                    ASN1InputStream.class.getDeclaredMethod("readLength", InputStream.class, int.class, boolean.class);
+            readLengthMethod.setAccessible(true);
+            int length = (int) readLengthMethod.invoke(ASN1InputStream.class, input, input.available(), false);
+            int remaining = input.available();
+
+            // For indefinite form, account for end-of-contents octets
+            int contentsLength = length < 0 ? remaining - 2 : remaining;
+            if (contentsLength < 0) {
+                throw new ASN1ParsingException("failed to get contents");
+            }
+
+            byte[] contents = new byte[contentsLength];
+            System.arraycopy(baseEncoding, baseEncoding.length - remaining, contents, 0, contentsLength);
+            return contents;
         } catch (Exception e) {
-            throw new IllegalStateException(e);
+            throw new ASN1ParsingException("failed to get contents", e);
         }
-        return contents;
     }
 }
