@@ -20,16 +20,21 @@ package jcifs.pac;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Enumeration;
 
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1ParsingException;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1TaggedObject;
+import org.bouncycastle.asn1.BERTaggedObject;
 import org.bouncycastle.asn1.BERTags;
+import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.DLSequence;
-
+import org.bouncycastle.asn1.DLTaggedObject;
 
 /**
  *
@@ -149,11 +154,23 @@ public final class ASN1Util {
     public static byte[] getContents(ASN1TaggedObject asn1TaggedObject) {
         try {
 
-            Method getASN1EncodingMethod = ASN1TaggedObject.class.getDeclaredMethod("getASN1Encoding");
-            getASN1EncodingMethod.setAccessible(true);
-            String asn1Encoding = (String) getASN1EncodingMethod.invoke(asn1TaggedObject);
+            String asn1Encoding;
+            if (asn1TaggedObject instanceof DERTaggedObject) {
+                asn1Encoding = ASN1Encoding.DER;
+            } else if (asn1TaggedObject instanceof BERTaggedObject) {
+                asn1Encoding = ASN1Encoding.BER;
+            } else if (asn1TaggedObject instanceof DLTaggedObject) {
+                asn1Encoding = ASN1Encoding.DL;
+            } else {
+                throw new IllegalStateException("Unknown " + asn1TaggedObject.getClass().getName());
+            }
 
-            byte[] baseEncoding = asn1TaggedObject.getBaseObject().toASN1Primitive().getEncoded(asn1Encoding);
+            // final ASN1Encodable obj;
+            Field objField = ASN1TaggedObject.class.getDeclaredField("obj");
+            objField.setAccessible(true);
+            ASN1Encodable obj = (ASN1Encodable) objField.get(asn1TaggedObject);
+
+            byte[] baseEncoding = obj.toASN1Primitive().getEncoded(asn1Encoding);
             if (asn1TaggedObject.isExplicit()) {
                 return baseEncoding;
             }
